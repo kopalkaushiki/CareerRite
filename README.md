@@ -120,9 +120,6 @@ CareerRite/
 5. Set start command: `cd backend && npm start`
 6. Add environment variables (MONGODB_URI, PORT)
 
-## 📄 License
-
-MIT
 
 
 
