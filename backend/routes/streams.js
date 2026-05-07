@@ -1,13 +1,14 @@
 import express from 'express'
-import Stream from '../models/Stream.js'
+import { supabase } from '../lib/supabase.js'
 
 const router = express.Router()
 
 // Get all streams
 router.get('/', async (req, res) => {
   try {
-    const streams = await Stream.find()
-    res.json(streams)
+    const { data, error } = await supabase.from('streams').select('*').order('name', { ascending: true })
+    if (error) return res.status(400).json({ error: error.message })
+    res.json(data || [])
   } catch (error) {
     res.status(500).json({ error: error.message })
   }
@@ -21,10 +22,13 @@ router.get('/:streamName', async (req, res) => {
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ')
     
-    const stream = await Stream.findOne({ 
-      name: { $regex: new RegExp(streamName, 'i') } 
-    })
+    const { data: stream, error } = await supabase
+      .from('streams')
+      .select('*')
+      .ilike('name', `%${streamName}%`)
+      .maybeSingle()
     
+    if (error) return res.status(400).json({ error: error.message })
     if (!stream) {
       return res.status(404).json({ error: 'Stream not found' })
     }
@@ -37,11 +41,16 @@ router.get('/:streamName', async (req, res) => {
 // Create or update stream (for seeding data)
 router.post('/', async (req, res) => {
   try {
-    const stream = await Stream.findOneAndUpdate(
-      { name: req.body.name },
-      req.body,
-      { new: true, upsert: true }
-    )
+    const body = req.body || {}
+    if (!body.name) return res.status(400).json({ error: 'Missing stream name' })
+
+    const { data: stream, error } = await supabase
+      .from('streams')
+      .upsert(body, { onConflict: 'name' })
+      .select('*')
+      .single()
+
+    if (error) return res.status(400).json({ error: error.message })
     res.json(stream)
   } catch (error) {
     res.status(400).json({ error: error.message })

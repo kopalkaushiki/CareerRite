@@ -24,6 +24,21 @@ export const streamsData = [
         name: 'BITSAT',
         description: 'Entrance exam for BITS Pilani campuses',
         youtubeLink: 'https://www.youtube.com/results?search_query=BITSAT+preparation'
+      },
+      {
+        name: 'VITEEE',
+        description: 'Entrance exam for Vellore Institute of Technology (VIT)',
+        youtubeLink: 'https://www.youtube.com/results?search_query=VITEEE+preparation'
+      },
+      {
+        name: 'SRMJEEE',
+        description: 'Joint Engineering Entrance Exam for SRM Group of Institutes',
+        youtubeLink: 'https://www.youtube.com/results?search_query=SRMJEEE+preparation'
+      },
+      {
+        name: 'WBJEE / State CETs',
+        description: 'State-level entrance exams like WBJEE, MHT-CET, KCET for regional colleges',
+        youtubeLink: 'https://www.youtube.com/results?search_query=State+Engineering+Entrance+preparation'
       }
     ],
     colleges: [

@@ -47,6 +47,16 @@ const Navbar = () => {
             >
               Profile
             </Link>
+            <Link
+              to="/libraries"
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                isActive('/libraries')
+                  ? 'text-sky-600 bg-sky-50'
+                  : 'text-gray-700 hover:text-sky-600 hover:bg-sky-50'
+              }`}
+            >
+              Libraries
+            </Link>
           </div>
         </div>
       </div>
