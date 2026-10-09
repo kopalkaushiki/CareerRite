@@ -1,142 +1,75 @@
 import express from 'express'
-import bcrypt from 'bcryptjs'
-import { supabase } from '../lib/supabase.js'
+import { requireAuth } from '../middleware/auth.js'
 
 const router = express.Router()
 
-const toUserResponse = (row) => {
-  if (!row) return null
-  // Keep frontend compatibility: Mongo used `_id`; Supabase uses `id`.
-  const { password_hash, ...rest } = row
-  return { ...rest, _id: row.id }
-}
+router.use(requireAuth)
 
-// Register user
-router.post('/register', async (req, res) => {
+const EDITABLE = ['name', 'class', 'goal', 'selectedStream', 'goalCollege']
+
+router.patch('/me', async (req, res) => {
   try {
-    const { name, email, password, class: userClass, goal } = req.body
-    
-    // Check if user exists
-    const { data: existing, error: existingError } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', (email || '').toLowerCase().trim())
-      .maybeSingle()
-
-    if (existingError) {
-      return res.status(400).json({ error: existingError.message })
+    for (const key of EDITABLE) {
+      if (req.body[key] !== undefined) req.user[key] = req.body[key]
     }
-
-    if (existing) {
-      return res.status(400).json({ error: 'User with this email already exists' })
-    }
-    
-    // Hash password
-    const salt = await bcrypt.genSalt(10)
-    const hashedPassword = await bcrypt.hash(password, salt)
-
-    const payload = {
-      name,
-      email: (email || '').toLowerCase().trim(),
-      password_hash: hashedPassword,
-      class: userClass,
-      goal
-    }
-
-    const { data: created, error: createError } = await supabase
-      .from('users')
-      .insert(payload)
-      .select('*')
-      .single()
-
-    if (createError) {
-      return res.status(400).json({ error: createError.message })
-    }
-
-    res.status(201).json(toUserResponse(created))
+    await req.user.save()
+    res.json({ user: req.user })
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
 })
 
-// Login user
-router.post('/login', async (req, res) => {
+router.post('/me/visits', async (req, res) => {
   try {
-    const { email, password } = req.body
-    
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', (email || '').toLowerCase().trim())
-      .maybeSingle()
-
-    if (userError) {
-      return res.status(400).json({ error: userError.message })
+    const { page } = req.body
+    if (!page || typeof page !== 'string') {
+      return res.status(400).json({ error: 'page is required' })
     }
-
-    if (!user) {
-      return res.status(400).json({ error: 'Invalid email or password' })
+    if (!req.user.visitedPages.includes(page)) {
+      req.user.visitedPages.push(page)
+      await req.user.save()
     }
-
-    const isMatch = await bcrypt.compare(password, user.password_hash || '')
-    if (!isMatch) {
-      return res.status(400).json({ error: 'Invalid email or password' })
-    }
-
-    res.json(toUserResponse(user))
+    res.json({ user: req.user })
   } catch (error) {
-    res.status(500).json({ error: error.message })
+    res.status(400).json({ error: error.message })
   }
 })
 
-// Get user by ID
-router.get('/:id', async (req, res) => {
+const STREAMS = [
+  'Engineering',
+  'Medical',
+  'Law',
+  'Architecture',
+  'Defense',
+  'MBA',
+  'Design',
+  'Arts & Humanities',
+  'Science & Research',
+]
+
+router.post('/me/quiz', async (req, res) => {
   try {
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', req.params.id)
-      .maybeSingle()
+    const { topStreams } = req.body
+    const valid =
+      Array.isArray(topStreams) &&
+      topStreams.length >= 1 &&
+      topStreams.length <= 3 &&
+      topStreams.every(
+        (t) => STREAMS.includes(t?.stream) && Number.isFinite(t?.match) && t.match >= 0 && t.match <= 100
+      )
 
-    if (userError) {
-      return res.status(400).json({ error: userError.message })
+    if (!valid) return res.status(400).json({ error: 'Invalid quiz result' })
+
+    req.user.quizResult = {
+      takenAt: new Date(),
+      topStreams: topStreams.map(({ stream, match }) => ({ stream, match })),
     }
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' })
-    }
-    res.json(toUserResponse(user))
-  } catch (error) {
-    res.status(500).json({ error: error.message })
-  }
-})
-
-// Update user
-router.patch('/:id', async (req, res) => {
-  try {
-    // Prevent password update via this route
-    const { password, password_hash, ...update } = req.body || {}
-
-    const { data: user, error: updateError } = await supabase
-      .from('users')
-      .update(update)
-      .eq('id', req.params.id)
-      .select('*')
-      .maybeSingle()
-
-    if (updateError) {
-      return res.status(400).json({ error: updateError.message })
-    }
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' })
-    }
-    res.json(toUserResponse(user))
+    await req.user.save()
+    res.json({ user: req.user })
   } catch (error) {
     res.status(400).json({ error: error.message })
   }
 })
 
 export default router
-
 

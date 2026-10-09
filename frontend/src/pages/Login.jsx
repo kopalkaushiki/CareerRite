@@ -1,141 +1,55 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useUser } from '../context/UserContext'
 
+const inputCls = 'w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all'
+
 const Login = () => {
+  const { login } = useUser()
   const navigate = useNavigate()
-  const { loginUser, registerUser } = useUser()
-  const [isLogin, setIsLogin] = useState(true)
-  
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    class: '',
-    goal: ''
-  })
+  const location = useLocation()
+  const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    setLoading(true)
+    setSubmitting(true)
     try {
-      if (isLogin) {
-        await loginUser({ email: formData.email, password: formData.password })
-      } else {
-        await registerUser(formData)
-      }
-      navigate('/')
+      await login(form.email, form.password)
+      navigate(location.state?.from || '/explore', { replace: true })
     } catch (err) {
-      setError(err.response?.data?.error || `Failed to ${isLogin ? 'login' : 'register'}. Please try again.`)
+      setError(err.message)
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    })
-  }
-
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gray-50/50">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 md:p-12 space-y-8 relative overflow-hidden">
-        
-        {/* Decorative elements */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-sky-100 rounded-full blur-3xl opacity-50 -mr-10 -mt-10"></div>
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-100 rounded-full blur-3xl opacity-50 -ml-10 -mb-10"></div>
-
-        <div className="text-center relative z-10">
-          <h2 className="text-4xl font-extrabold text-gray-900 tracking-tight">
-            {isLogin ? 'Welcome Back' : 'Join'} <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-500 to-purple-600">CareerRite</span>
-          </h2>
-          <p className="mt-3 text-sm text-gray-500 font-medium">
-            {isLogin ? 'Enter your credentials to access your dashboard' : 'Create an account to start your journey'}
-          </p>
-        </div>
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-medium relative z-10">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
-          
-          {!isLogin && (
-            <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Full Name</label>
-              <input type="text" name="name" value={formData.name} onChange={handleChange} required={!isLogin} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 outline-none transition-all" placeholder="John Doe" />
-            </div>
-          )}
-
+    <div className="py-12 px-4">
+      <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-6 text-center">Welcome back</h1>
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Email Address</label>
-            <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 outline-none transition-all" placeholder="you@example.com" />
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <input id="email" type="email" required value={form.email} className={inputCls}
+              onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@example.com" />
           </div>
-
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Password</label>
-            <input type="password" name="password" value={formData.password} onChange={handleChange} required className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 outline-none transition-all" placeholder="••••••••" />
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+            <input id="password" type="password" required value={form.password} className={inputCls}
+              onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Your password" />
           </div>
-
-          {!isLogin && (
-            <>
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Current Class</label>
-                <select name="class" value={formData.class} onChange={handleChange} required={!isLogin} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 outline-none transition-all text-gray-700">
-                  <option value="">Select your class</option>
-                  <option value="9">Class 9</option>
-                  <option value="10">Class 10</option>
-                  <option value="11">Class 11</option>
-                  <option value="12">Class 12</option>
-                  <option value="College">College</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">Primary Objective</label>
-                <select name="goal" value={formData.goal} onChange={handleChange} required={!isLogin} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:ring-2 focus:ring-sky-500 outline-none transition-all text-gray-700">
-                  <option value="">Select an objective</option>
-                  <option value="Career Decision">Career Decision</option>
-                  <option value="Exploring Options">Exploring Options</option>
-                  <option value="Looking for Options">Looking for Options</option>
-                  <option value="Skill Development">Skill Development</option>
-                </select>
-              </div>
-            </>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className={`w-full text-white mt-4 py-3.5 px-6 rounded-xl font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] ${
-              loading 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-gradient-to-r from-sky-500 to-purple-600 hover:from-sky-600 hover:to-purple-700'
-            }`}
-          >
-            {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <button type="submit" disabled={submitting}
+            className="w-full bg-gradient-to-r from-sky-500 to-purple-500 text-white py-3 rounded-lg font-semibold disabled:opacity-60">
+            {submitting ? 'Logging in...' : 'Log in'}
           </button>
         </form>
-
-        <div className="text-center mt-6 relative z-10">
-          <button 
-            type="button" 
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError('');
-            }}
-            className="text-sm font-semibold text-sky-600 hover:text-sky-800 transition-colors"
-          >
-            {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
-          </button>
-        </div>
+        <p className="text-sm text-gray-600 mt-6 text-center">
+          New here? <Link to="/register" className="text-sky-600 font-semibold">Create an account</Link>
+        </p>
       </div>
     </div>
   )

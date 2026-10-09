@@ -1,9 +1,18 @@
-import { createContext, useContext, useState, useEffect } from 'react'
-import axios from 'axios'
+import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { api, getToken, setToken } from '../api'
 
 const UserContext = createContext()
 
-const API_URL = 'http://localhost:5000/api/users'
+const EMPTY_USER = {
+  name: '',
+  email: '',
+  class: '',
+  goal: '',
+  selectedStream: '',
+  goalCollege: '',
+  visitedPages: [],
+  quizResult: null,
+}
 
 export const useUser = () => {
   const context = useContext(UserContext)
@@ -14,99 +23,100 @@ export const useUser = () => {
 }
 
 export const UserProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(EMPTY_USER)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [loading, setLoading] = useState(!!getToken())
+
+  const applyUser = (u) => {
+    setUser({ ...EMPTY_USER, ...u })
+    setIsAuthenticated(true)
+  }
 
   useEffect(() => {
-    const fetchUser = async () => {
-      const userId = localStorage.getItem('careerRiteUserId')
-      if (userId) {
-        try {
-          const res = await axios.get(`${API_URL}/${userId}`)
-          setUser(res.data)
-        } catch (error) {
-          console.error("Error fetching user:", error)
-          localStorage.removeItem('careerRiteUserId')
-        }
-      }
+    if (!getToken()) {
       setLoading(false)
+      return
     }
-    fetchUser()
+
+    api('/auth/me')
+      .then(({ user }) => applyUser(user))
+      .catch((err) => {
+        if (err.status === 401) setToken(null)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
-  const loginUser = async (credentials) => {
+  const register = async (form) => {
+    const { token, user } = await api('/auth/register', { method: 'POST', body: form })
+    setToken(token)
+    applyUser(user)
+  }
+
+  const login = async (email, password) => {
+    const { token, user } = await api('/auth/login', { method: 'POST', body: { email, password } })
+    setToken(token)
+    applyUser(user)
+  }
+
+  const logout = () => {
+    setToken(null)
+    setUser(EMPTY_USER)
+    setIsAuthenticated(false)
+  }
+
+  const updateUser = useCallback(async (userData) => {
+    if (!getToken()) return
+    const { user: saved } = await api('/users/me', { method: 'PATCH', body: userData })
+    setUser((prev) => ({ ...prev, ...saved }))
+    return saved
+  }, [])
+
+  const saveQuizResult = useCallback(async (topStreams) => {
+    const { user: saved } = await api('/users/me/quiz', { method: 'POST', body: { topStreams } })
+    setUser((prev) => ({ ...prev, ...saved }))
+    return saved
+  }, [])
+
+  const addVisitedPage = useCallback(async (page) => {
+    if (!getToken()) return
+
+    let alreadyVisited = false
+    setUser((prev) => {
+      alreadyVisited = prev.visitedPages.includes(page)
+      return alreadyVisited ? prev : { ...prev, visitedPages: [...prev.visitedPages, page] }
+    })
+
+    if (alreadyVisited) return
+
     try {
-      const res = await axios.post(`${API_URL}/login`, credentials)
-      setUser(res.data)
-      localStorage.setItem('careerRiteUserId', res.data._id)
-      return res.data
-    } catch (error) {
-      console.error("Login error:", error)
-      throw error
+      await api('/users/me/visits', { method: 'POST', body: { page } })
+    } catch {
+      // progress tracking is best effort
     }
-  }
-
-  const registerUser = async (userData) => {
-    try {
-      const res = await axios.post(`${API_URL}/register`, userData)
-      setUser(res.data)
-      localStorage.setItem('careerRiteUserId', res.data._id)
-      return res.data
-    } catch (error) {
-      console.error("Registration error:", error)
-      throw error
-    }
-  }
-
-  const logoutUser = () => {
-    setUser(null)
-    localStorage.removeItem('careerRiteUserId')
-  }
-
-  const updateUser = async (userData) => {
-    if (!user?._id) return
-
-    // Optimistic UI update
-    const previousUser = { ...user }
-    setUser({ ...user, ...userData })
-
-    try {
-      const res = await axios.patch(`${API_URL}/${user._id}`, userData)
-      setUser(res.data)
-    } catch (error) {
-      console.error("Update error:", error)
-      setUser(previousUser) // Revert on failure
-    }
-  }
-
-  const addVisitedPage = async (page) => {
-    if (!user) return
-    const updatedPages = [...new Set([...(user.visitedPages || []), page])]
-    if (updatedPages.length !== user.visitedPages?.length) {
-      await updateUser({ visitedPages: updatedPages })
-    }
-  }
+  }, [])
 
   const calculateProgress = () => {
-    if (!user || !user.visitedPages) return 0
     const totalPages = 41
-    return Math.round((user.visitedPages.length / totalPages) * 100)
+    return Math.min(100, Math.round((user.visitedPages.length / totalPages) * 100))
   }
 
   return (
-    <UserContext.Provider value={{
-      user,
-      loading,
-      loginUser,
-      registerUser,
-      logoutUser,
-      updateUser,
-      addVisitedPage,
-      calculateProgress
-    }}>
+    <UserContext.Provider
+      value={{
+        user,
+        isAuthenticated,
+        loading,
+        register,
+        login,
+        logout,
+        updateUser,
+        saveQuizResult,
+        addVisitedPage,
+        calculateProgress,
+      }}
+    >
       {children}
     </UserContext.Provider>
   )
 }
-
 

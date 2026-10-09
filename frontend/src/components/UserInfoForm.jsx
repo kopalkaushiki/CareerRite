@@ -4,24 +4,33 @@ import { useUser } from '../context/UserContext'
 
 const UserInfoForm = () => {
   const navigate = useNavigate()
-  const { updateUser, addVisitedPage } = useUser()
+  const { user, updateUser } = useUser()
   const [formData, setFormData] = useState({
-    name: '',
-    class: '',
-    goal: ''
+    name: user.name || '',
+    class: user.class || '',
+    goal: user.goal || '',
   })
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    updateUser(formData)
-    addVisitedPage('home')
-    navigate('/explore')
+    setError('')
+    setSaving(true)
+    try {
+      await updateUser(formData)
+      navigate('/explore')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     })
   }
 
@@ -84,16 +93,18 @@ const UserInfoForm = () => {
         </select>
       </div>
 
+      {error && <p className="text-sm text-red-600">{error}</p>}
+
       <button
         type="submit"
-        className="w-full bg-gradient-to-r from-sky-500 to-purple-500 text-white py-3 px-6 rounded-lg font-semibold text-lg hover:from-sky-600 hover:to-purple-600 transition-all duration-200 transform hover:scale-105 shadow-lg"
+        disabled={saving}
+        className="w-full bg-gradient-to-r from-sky-500 to-purple-500 text-white py-3 px-6 rounded-lg font-semibold text-lg hover:from-sky-600 hover:to-purple-600 transition-all duration-200 transform hover:scale-105 shadow-lg disabled:opacity-60"
       >
-        Continue
+        {saving ? 'Saving...' : 'Save & Continue'}
       </button>
     </form>
   )
 }
 
 export default UserInfoForm
-
 

@@ -1,87 +1,60 @@
 import mongoose from 'mongoose'
+import bcrypt from 'bcryptjs'
 
-const userSchema = new mongoose.Schema({
-  name: {
-    type: String,
-    required: true
+const userSchema = new mongoose.Schema(
+  {
+    name: { type: String, required: true, trim: true },
+    email: {
+      type: String,
+      required: true,
+      unique: true,
+      lowercase: true,
+      trim: true,
+    },
+    password: { type: String, required: true, minlength: 6, select: false },
+    class: {
+      type: String,
+      required: true,
+      enum: ['9', '10', '11', '12', 'College'],
+    },
+    goal: {
+      type: String,
+      required: true,
+      enum: ['Career Decision', 'Exploring Options', 'Looking for Options', 'Skill Development'],
+    },
+    selectedStream: { type: String, default: '' },
+    goalCollege: { type: String, default: '', trim: true },
+    visitedPages: { type: [String], default: [] },
+    quizResult: {
+      takenAt: { type: Date },
+      topStreams: [
+        {
+          _id: false,
+          stream: { type: String, required: true },
+          match: { type: Number, required: true, min: 0, max: 100 },
+        },
+      ],
+    },
   },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true,
-    lowercase: true
+  { timestamps: true }
+)
+
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next()
+  this.password = await bcrypt.hash(this.password, 10)
+  next()
+})
+
+userSchema.methods.comparePassword = function (plain) {
+  return bcrypt.compare(plain, this.password)
+}
+
+userSchema.set('toJSON', {
+  transform: (doc, ret) => {
+    delete ret.password
+    delete ret.__v
+    return ret
   },
-  password: {
-    type: String,
-    required: true
-  },
-  class: {
-    type: String,
-    required: true,
-    enum: ['9', '10', '11', '12', 'College']
-  },
-  goal: {
-    type: String,
-    required: true,
-    enum: ['Career Decision', 'Exploring Options', 'Looking for Options', 'Skill Development']
-  },
-  selectedStream: {
-    type: String,
-    default: ''
-  },
-  goalCollege: {
-    type: String,
-    default: ''
-  },
-  visitedPages: {
-    type: [String],
-    default: []
-  },
-  profilePhoto: {
-    type: String,
-    default: ''
-  },
-  skills: {
-    type: String,
-    default: ''
-  },
-  marks10: {
-    type: String,
-    default: ''
-  },
-  marks12: {
-    type: String,
-    default: ''
-  },
-  competitiveExam: {
-    type: String,
-    default: ''
-  },
-  targetDegree: {
-    type: String,
-    default: ''
-  },
-  roadmap: {
-    type: String,
-    default: ''
-  },
-  quizAnswers: {
-    type: Object,
-    default: {}
-  },
-  quizResultKey: {
-    type: String,
-    default: ''
-  },
-  quizCounts: {
-    type: Object,
-    default: { A: 0, B: 0, C: 0, D: 0 }
-  }
-}, {
-  timestamps: true
 })
 
 export default mongoose.model('User', userSchema)
-
-
